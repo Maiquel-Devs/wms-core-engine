@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WMS Core Engine | Logística & Armazenagem</title>
+
+    <!-- Bootstrap 5 CSS & Icons & Font Inter -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- CSS Externo Isolado via Thymeleaf -->
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+
+<!-- Header Navigation -->
+<nav class="navbar navbar-expand-lg navbar-custom py-3 mb-4">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/">
+            <i class="bi bi-boxes text-dark fs-4"></i>
+            <span>WMS Core Engine</span>
+            <span class="badge bg-secondary-subtle text-secondary fs-8 ms-2">v1.0-RC</span>
+        </a>
+        <div class="d-flex align-items-center gap-3">
+            <button class="btn btn-brand btn-sm d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#modalRecebimento">
+                <i class="bi bi-plus-circle"></i> Novo Recebimento
+            </button>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid px-4 pb-5 mb-5">
+
+    <!-- Flash Messages -->
+    <div th:if="${sucesso}" class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
+        <i class="bi bi-check-circle-fill"></i>
+        <span th:text="${sucesso}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <div th:if="${erro}" class="alert alert-danger alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span th:text="${erro}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <div th:if="${info}" class="alert alert-info alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
+        <i class="bi bi-lightbulb-fill"></i>
+        <span th:text="${info}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
+    <!-- KPI Metrics Grid -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-label">Capacidade Total</div>
+                <div class="kpi-value" th:text="${#lists.size(enderecos)}">0</div>
+                <small class="text-muted"><i class="bi bi-grid-3x3"></i> Posições cadastradas</small>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-label">Paletes em Estoque</div>
+                <div class="kpi-value" th:text="${#lists.size(paletesAlocados)}">0</div>
+                <small class="text-muted"><i class="bi bi-box-seam"></i> Ocupando estantes</small>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-label">Fila na Doca</div>
+                <div class="kpi-value" th:text="${#lists.size(paletesPendentes)}">0</div>
+                <small class="text-danger"><i class="bi bi-hourglass-split"></i> Aguardando alocação</small>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-label">Posições de Piso (Nível 1)</div>
+                <div class="kpi-value">
+                    <span th:text="${#lists.size(enderecos.?[nivel == 1 and !ocupado])}">0</span>
+                    <span class="fs-6 text-muted fw-normal">livres</span>
+                </div>
+                <small class="text-warning"><i class="bi bi-shield-check"></i> Cargas pesadas (>500kg)</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rack Matrix (Armazém Visual em Racks) -->
+    <div class="rack-container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5 class="fw-bold mb-0"><i class="bi bi-diagram-3"></i> Topologia Física do Galpão</h5>
+                <p class="text-muted small mb-0">Visualização de prateleiras por Rua, Bloco e Nível</p>
+            </div>
+            <div class="d-flex gap-2">
+                <span class="badge badge-free px-3 py-2"><i class="bi bi-check2"></i> Vaga Livre</span>
+                <span class="badge badge-occupied px-3 py-2"><i class="bi bi-slash-circle"></i> Ocupado</span>
+            </div>
+        </div>
+
+        <!-- Grid Aberto com o Design Original -->
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
+            <div class="col" th:each="end : ${enderecos}">
+                <div class="slot-card" th:classappend="${end.ocupado} ? 'slot-occupied' : 'slot-free'">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold font-monospace" th:text="${end.codigoEndereco}">R01-B01-N01-P01</span>
+                        <span th:if="${!end.ocupado}" class="badge badge-free">Livre</span>
+                        <span th:if="${end.ocupado}" class="badge badge-occupied">Ocupado</span>
+                    </div>
+                    <div class="small text-muted mb-2">
+                        <div>
+                            <i class="bi bi-arrows-vertical"></i> Nível: <span class="fw-semibold text-dark" th:text="${end.nivel}">1</span>
+                            <span th:if="${end.nivel == 1}" class="badge badge-floor ms-1">Piso</span>
+                        </div>
+                        <div><i class="bi bi-speedometer2"></i> Limite: <span class="fw-semibold text-dark" th:text="${end.capacidadePesoKg} + ' kg'">1500 kg</span></div>
+                        <div><i class="bi bi-bounding-box"></i> Volume: <span class="fw-semibold text-dark" th:text="${end.capacidadeVolumeM3} + ' m³'">3.5 m³</span></div>
+                    </div>
+
+                    <!-- Rodapé do Card Original -->
+                    <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center">
+                        <span class="text-muted small">Versão: #<span th:text="${end.version}">0</span></span>
+                        <span th:if="${!end.ocupado}" class="badge text-bg-light border">Pronto para uso</span>
+                        <span th:if="${end.ocupado}" class="text-danger small fw-semibold"><i class="bi bi-lock-fill"></i> Bloqueado</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Doca de Recebimento & Fila de Alocação -->
+    <div class="row g-4 mb-5 align-items-stretch">
+
+        <!-- COLUNA ESQUERDA: Doca -->
+        <div class="col-12 col-xl-7">
+            <div class="card border-0 shadow-sm rounded-4 h-100" style="border: 1px solid var(--border-subtle) !important;">
+                <div class="card-header bg-white border-0 pt-4 px-4 pb-2">
+                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-inboxes text-secondary me-2"></i>Doca de Recebimento (Paletes Aguardando Vaga)</h6>
+                </div>
+                <div class="card-body px-4 pt-2 pb-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 border-top">
+                            <thead class="table-light small text-muted text-uppercase" style="letter-spacing: 0.5px;">
+                            <tr>
+                                <th style="width: 22%;" class="ps-3 py-3 border-0 rounded-start">Lote</th>
+                                <th style="width: 35%;" class="py-3 border-0">Produto SKU</th>
+                                <th style="width: 23%;" class="py-3 border-0">Peso / Cubagem</th>
+                                <th style="width: 20%;" class="text-end pe-3 py-3 border-0 rounded-end">Ações</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:if="${#lists.isEmpty(paletesPendentes)}">
+                                <td colspan="4" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox fs-2 d-block mb-2 opacity-50"></i>
+                                    Nenhum palete pendente na doca.
+                                </td>
+                            </tr>
+                            <tr th:each="palete : ${paletesPendentes}">
+                                <td class="ps-3 py-3">
+                                    <span class="fw-bold font-monospace text-dark" th:text="${palete.codigoLote}">LOT-2026-001</span>
+                                </td>
+                                <td class="py-3">
+                                    <div class="fw-semibold text-dark" th:text="${palete.produto.nome}">Nome Produto</div>
+                                    <small class="text-muted" th:text="${palete.produto.codigoSku}">SKU-123</small>
+                                </td>
+                                <td class="py-3">
+                                    <div class="fw-semibold text-dark" th:text="${palete.pesoTotalKg} + ' kg'">650 kg</div>
+                                    <small class="text-muted" th:text="${palete.volumeTotalM3} + ' m³'">1.2 m³</small>
+                                </td>
+                                <td class="text-end pe-3 py-3">
+                                    <div class="btn-group">
+                                        <!-- Sugerir Vaga -->
+                                        <a th:href="@{/paletes/{id}/sugerir(id=${palete.id})}" class="btn btn-outline-dark btn-sm" title="Calcular Vaga Ideal">
+                                            <i class="bi bi-cpu"></i> Sugerir Vaga
+                                        </a>
+                                        <!-- Alocar Manual -->
+                                        <button class="btn btn-dark btn-sm" data-bs-toggle="modal" th:data-bs-target="'#modalAlocar-' + ${palete.id}">
+                                            Alocar
+                                        </button>
+                                    </div>
+
+                                    <!-- Modal de Alocação Manual -->
+                                    <div class="modal fade text-start" th:id="'modalAlocar-' + ${palete.id}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <form th:action="@{/paletes/alocar}" method="post">
+                                                    <div class="modal-header">
+                                                        <h6 class="modal-title fw-bold">Alocar Palete <span th:text="${palete.codigoLote}"></span></h6>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <input type="hidden" name="paleteId" th:value="${palete.id}">
+                                                        <div class="mb-3">
+                                                            <label class="form-label small fw-semibold">Selecione o Endereço Físico:</label>
+                                                            <select name="enderecoId" class="form-select" required>
+                                                                <option value="" disabled selected>Escolha uma prateleira livre...</option>
+                                                                <option th:each="end : ${enderecos.?[!ocupado]}"
+                                                                        th:value="${end.id}"
+                                                                        th:text="${end.codigoEndereco} + ' (Nível ' + ${end.nivel} + ' - Max ' + ${end.capacidadePesoKg} + 'kg)'">
+                                                                </option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                                                        <button type="submit" class="btn btn-brand btn-sm">Confirmar Alocação</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLUNA DIREITA: Paletes Alocados -->
+        <div class="col-12 col-xl-5">
+            <div class="card border-0 shadow-sm rounded-4 h-100" style="border: 1px solid var(--border-subtle) !important;">
+                <div class="card-header bg-white border-0 pt-4 px-4 pb-2">
+                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-check-all text-success me-2"></i>Paletes Alocados em Estantes</h6>
+                </div>
+                <div class="card-body px-4 pt-2 pb-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 border-top">
+                            <thead class="table-light small text-muted text-uppercase" style="letter-spacing: 0.5px;">
+                            <tr>
+                                <th style="width: 50%;" class="ps-3 py-3 border-0 rounded-start">Lote / Endereço</th>
+                                <th style="width: 30%;" class="py-3 border-0">Carga</th>
+                                <th style="width: 20%;" class="text-end pe-3 py-3 border-0 rounded-end">Ação</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:if="${#lists.isEmpty(paletesAlocados)}">
+                                <td colspan="3" class="text-center py-5 text-muted">
+                                    <i class="bi bi-grid fs-2 d-block mb-2 opacity-50"></i>
+                                    Nenhum palete alocado no momento.
+                                </td>
+                            </tr>
+                            <tr th:each="palete : ${paletesAlocados}">
+                                <td class="ps-3 py-3">
+                                    <div class="fw-bold font-monospace text-dark" th:text="${palete.codigoLote}">LOT-001</div>
+                                    <span class="badge bg-dark font-monospace mt-1" th:text="${palete.endereco.codigoEndereco}">R01-B01-N01-P01</span>
+                                </td>
+                                <td class="py-3">
+                                    <div class="fw-semibold text-dark" th:text="${palete.pesoTotalKg} + ' kg'"></div>
+                                    <small class="text-muted" th:text="${palete.volumeTotalM3} + ' m³'"></small>
+                                </td>
+                                <td class="text-end pe-3 py-3">
+                                    <form th:action="@{/paletes/{id}/desalocar(id=${palete.id})}" method="post">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm" title="Desalocar / Expedição">
+                                            <i class="bi bi-box-arrow-up-right"></i> Baixa
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Novo Recebimento de Lote -->
+<div class="modal fade" id="modalRecebimento" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form th:action="@{/paletes/receber}" th:object="${novoPalete}" method="post">
+                <div class="modal-header">
+                    <h6 class="modal-title fw-bold"><i class="bi bi-truck"></i> Recebimento de Mercadoria na Doca</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Código do Lote / Identificador:</label>
+                        <input type="text" th:field="*{codigoLote}" class="form-control" placeholder="Ex: LOT-2026-X89" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Produto Mestre:</label>
+                        <select th:field="*{produtoId}" class="form-select" required>
+                            <option value="" disabled selected>Selecione um produto cadastrado...</option>
+                            <option th:each="prod : ${produtos}" th:value="${prod.id}" th:text="${prod.nome} + ' (' + ${prod.codigoSku} + ')'"></option>
+                        </select>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-4">
+                            <label class="form-label small fw-semibold">Quantidade:</label>
+                            <input type="number" th:field="*{quantidadeItens}" class="form-control" min="1" required>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small fw-semibold">Peso Total (kg):</label>
+                            <input type="number" step="0.01" th:field="*{pesoTotalKg}" class="form-control" placeholder="650.00" required>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small fw-semibold">Volume (m³):</label>
+                            <input type="number" step="0.0001" th:field="*{volumeTotalM3}" class="form-control" placeholder="1.2000" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Fechar</button>
+                    <button type="submit" class="btn btn-brand btn-sm">Dar Entrada na Doca</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap 5 Bundle JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

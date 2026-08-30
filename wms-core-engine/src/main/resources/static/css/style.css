@@ -1,0 +1,122 @@
+:root {
+    --bg-canvas: #f8fafc;
+    --border-subtle: #e2e8f0;
+    --card-bg: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --brand-dark: #0f172a;
+    --success-soft: #ecfdf5;
+    --success-text: #059669;
+    --danger-soft: #fef2f2;
+    --danger-text: #dc2626;
+    --warning-soft: #fffbeb;
+    --warning-text: #d97706;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg-canvas);
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 6rem;
+}
+
+/* Navbar */
+.navbar-custom {
+    background-color: #ffffff;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+/* KPI Cards */
+.kpi-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.kpi-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.kpi-value {
+    font-size: 1.85rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-top: 0.35rem;
+}
+
+/* Warehouse Container (Sem scroll interno, fluxo aberto) */
+.rack-container {
+    background: var(--card-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* Card Original do Primeiro Design (Vertical e Espaçado) */
+.slot-card {
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 0.85rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    background-color: #ffffff;
+}
+
+.slot-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+}
+
+.slot-free {
+    border-left: 4px solid var(--success-text);
+}
+
+.slot-occupied {
+    background-color: #fafafa;
+    border-left: 4px solid var(--danger-text);
+}
+
+/* Badges */
+.badge-free {
+    background-color: var(--success-soft);
+    color: var(--success-text);
+    font-weight: 600;
+}
+
+.badge-occupied {
+    background-color: var(--danger-soft);
+    color: var(--danger-text);
+    font-weight: 600;
+}
+
+.badge-floor {
+    background-color: var(--warning-soft);
+    color: var(--warning-text);
+    font-weight: 600;
+}
+
+/* Botões & Tabelas */
+.btn-brand {
+    background-color: var(--brand-dark);
+    color: #ffffff;
+    font-weight: 500;
+}
+
+.btn-brand:hover {
+    background-color: #1e293b;
+    color: #ffffff;
+}
+
+.table-custom {
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    overflow: hidden;
+}
