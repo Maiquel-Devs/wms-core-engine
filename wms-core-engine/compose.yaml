@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: 'postgres:16-alpine'
+    container_name: wms_postgres
+    environment:
+      - 'POSTGRES_DB=wms_db'
+      - 'POSTGRES_PASSWORD=postgrespassword'
+      - 'POSTGRES_USER=postgres'
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_wms_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_wms_data:
