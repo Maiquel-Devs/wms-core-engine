@@ -117,7 +117,23 @@ public class AlocacaoService {
             endereco.setOcupado(false);
             enderecoRepository.save(endereco);
             palete.setEndereco(null);
+            palete.setAlocadoEm(null); // Limpa o timestamp de alocação ao desocupar
             paleteRepository.save(palete);
         }
+    }
+
+    /**
+     * Ponto de entrada para sugestão por ID de palete
+     */
+    @Transactional(readOnly = true)
+    public EnderecoEstoque sugerirVaga(Long paleteId) {
+        Palete palete = paleteRepository.findById(paleteId)
+                .orElseThrow(() -> new IllegalArgumentException("Palete não encontrado com ID: " + paleteId));
+
+        if (palete.getEndereco() != null) {
+            throw new IllegalStateException("O palete já está alocado na vaga: " + palete.getEndereco().getCodigoEndereco());
+        }
+
+        return sugerirMelhorEndereco(palete);
     }
 }

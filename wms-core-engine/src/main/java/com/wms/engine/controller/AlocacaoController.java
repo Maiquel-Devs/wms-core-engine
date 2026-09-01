@@ -1,7 +1,6 @@
 package com.wms.engine.controller;
 
-import com.wms.engine.dto.AlocacaoRequestDTO;
-import com.wms.engine.dto.PaleteRecebimentoDTO;
+import com.wms.engine.dto.NovoPaleteDTO;
 import com.wms.engine.model.EnderecoEstoque;
 import com.wms.engine.model.Palete;
 import com.wms.engine.model.Produto;
@@ -9,10 +8,9 @@ import com.wms.engine.repository.EnderecoEstoqueRepository;
 import com.wms.engine.repository.PaleteRepository;
 import com.wms.engine.repository.ProdutoRepository;
 import com.wms.engine.service.AlocacaoService;
-import jakarta.validation.Valid;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -23,101 +21,113 @@ import java.util.List;
 public class AlocacaoController {
 
     private final AlocacaoService alocacaoService;
-    private final EnderecoEstoqueRepository enderecoRepository;
     private final PaleteRepository paleteRepository;
+    private final EnderecoEstoqueRepository enderecoRepository;
     private final ProdutoRepository produtoRepository;
 
     public AlocacaoController(AlocacaoService alocacaoService,
-                              EnderecoEstoqueRepository enderecoRepository,
                               PaleteRepository paleteRepository,
+                              EnderecoEstoqueRepository enderecoRepository,
                               ProdutoRepository produtoRepository) {
         this.alocacaoService = alocacaoService;
-        this.enderecoRepository = enderecoRepository;
         this.paleteRepository = paleteRepository;
+        this.enderecoRepository = enderecoRepository;
         this.produtoRepository = produtoRepository;
     }
 
-    // Painel Operacional: Grid do armazém e paletes pendentes
+    /**
+     * Carrega o painel operacional com as métricas físicas, doca e mapa de estantes
+     */
     @GetMapping
-    public String painelArmazem(Model model) {
-        List<EnderecoEstoque> enderecos = enderecoRepository.findAll();
-        List<Palete> pendentes = paleteRepository.findByEnderecoIsNull();
-        List<Palete> alocados = paleteRepository.findByEnderecoIsNotNull();
+    public String exibirPainel(Model model) {
+        List<EnderecoEstoque> enderecos = enderecoRepository.findAll(Sort.by("codigoEndereco"));
+        List<Palete> paletesPendentes = paleteRepository.findByEnderecoIsNull();
+        List<Palete> paletesAlocados = paleteRepository.findByEnderecoIsNotNull();
         List<Produto> produtos = produtoRepository.findAll();
 
         model.addAttribute("enderecos", enderecos);
-        model.addAttribute("paletesPendentes", pendentes);
-        model.addAttribute("paletesAlocados", alocados);
+        model.addAttribute("paletesPendentes", paletesPendentes);
+        model.addAttribute("paletesAlocados", paletesAlocados);
         model.addAttribute("produtos", produtos);
-        model.addAttribute("novoPalete", new PaleteRecebimentoDTO("", null, 1, null, null));
+
+        if (!model.containsAttribute("novoPalete")) {
+            model.addAttribute("novoPalete", new NovoPaleteDTO());
+        }
 
         return "painel";
     }
 
-    // Recebimento de novo lote/palete no galpão
+    /**
+     * Dá entrada em novos lotes/paletes na doca de recebimento
+     */
     @PostMapping("/paletes/receber")
-    public String receberPalete(@Valid @ModelAttribute("novoPalete") PaleteRecebimentoDTO dto,
-                                BindingResult result,
-                                RedirectAttributes redirectAttributes,
-                                Model model) {
-        if (result.hasErrors()) {
-            redirectAttributes.addFlashAttribute("erro", "Dados inválidos para recebimento do lote.");
-            return "redirect:/";
-        }
-
-        Produto produto = produtoRepository.findById(dto.produtoId())
-                .orElseThrow(() -> new IllegalArgumentException("Produto inválido"));
-
-        Palete palete = new Palete();
-        palete.setCodigoLote(dto.codigoLote());
-        palete.setProduto(produto);
-        palete.setQuantidadeItens(dto.quantidadeItens());
-        palete.setPesoTotalKg(dto.pesoTotalKg());
-        palete.setVolumeTotalM3(dto.volumeTotalM3());
-
-        paleteRepository.save(palete);
-        redirectAttributes.addFlashAttribute("sucesso", "Lote " + palete.getCodigoLote() + " recebido na doca!");
-        return "redirect:/";
-    }
-
-    // Sugestão determinística de alocação por algoritmo
-    @GetMapping("/paletes/{id}/sugerir")
-    public String sugerirVaga(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        Palete palete = paleteRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Palete não encontrado"));
-
+    public String receberPaleteNaDoca(@ModelAttribute("novoPalete") NovoPaleteDTO dto,
+                                      RedirectAttributes redirectAttributes) {
         try {
-            EnderecoEstoque sugestao = alocacaoService.sugerirMelhorEndereco(palete);
-            redirectAttributes.addFlashAttribute("info",
-                    "Melhor vaga para o lote " + palete.getCodigoLote() + ": " + sugestao.getCodigoEndereco() +
-                            " (Nível " + sugestao.getNivel() + ")");
+            Produto produto = produtoRepository.findById(dto.getProdutoId())
+                    .orElseThrow(() -> new IllegalArgumentException("Produto informado não foi encontrado."));
+
+            Palete palete = new Palete();
+            palete.setCodigoLote(dto.getCodigoLote());
+            palete.setProduto(produto);
+            palete.setQuantidadeItens(dto.getQuantidadeItens());
+            palete.setPesoTotalKg(dto.getPesoTotalKg());
+            palete.setVolumeTotalM3(dto.getVolumeTotalM3());
+
+            paleteRepository.save(palete);
+            redirectAttributes.addFlashAttribute("sucesso", "Lote " + palete.getCodigoLote() + " recebido na doca com sucesso!");
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("erro", e.getMessage());
+            redirectAttributes.addFlashAttribute("erro", "Erro ao dar entrada no lote: " + e.getMessage());
         }
-
         return "redirect:/";
     }
 
-    // Execução da alocação física no endereço
-    @PostMapping("/paletes/alocar")
-    public String alocarPalete(@ModelAttribute AlocacaoRequestDTO dto, RedirectAttributes redirectAttributes) {
+    /**
+     * Executa a rota do botão 'Sugerir Vaga' acionando o algoritmo determinístico
+     */
+    @GetMapping("/paletes/{id}/sugerir")
+    public String sugerirVagaParaPalete(@PathVariable("id") Long id, RedirectAttributes redirectAttributes) {
         try {
-            alocacaoService.alocarPalete(dto.paleteId(), dto.enderecoId());
-            redirectAttributes.addFlashAttribute("sucesso", "Palete alocado com sucesso!");
+            EnderecoEstoque enderecoSugerido = alocacaoService.sugerirVaga(id);
+            redirectAttributes.addFlashAttribute("info",
+                    String.format("Sugestão da Engenharia: A melhor posição calculada para o palete é [%s] (Nível %d - Capacidade: %s kg / %s m³).",
+                            enderecoSugerido.getCodigoEndereco(),
+                            enderecoSugerido.getNivel(),
+                            enderecoSugerido.getCapacidadePesoKg(),
+                            enderecoSugerido.getCapacidadeVolumeM3()
+                    ));
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("erro", "Não foi possível sugerir vaga: " + e.getMessage());
+        }
+        return "redirect:/";
+    }
+
+    /**
+     * Realiza a alocação do palete na vaga física com controle de concorrência
+     */
+    @PostMapping("/paletes/alocar")
+    public String alocarPaleteManual(@RequestParam("paleteId") Long paleteId,
+                                     @RequestParam("enderecoId") Long enderecoId,
+                                     RedirectAttributes redirectAttributes) {
+        try {
+            alocacaoService.alocarPalete(paleteId, enderecoId);
+            redirectAttributes.addFlashAttribute("sucesso", "Palete alocado na posição física com sucesso!");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("erro", "Falha na alocação: " + e.getMessage());
         }
         return "redirect:/";
     }
 
-    // Desalocar (Remoção / Expedição)
+    /**
+     * Realiza a baixa do palete liberando o endereço no galpão
+     */
     @PostMapping("/paletes/{id}/desalocar")
-    public String desalocarPalete(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+    public String desalocarPalete(@PathVariable("id") Long id, RedirectAttributes redirectAttributes) {
         try {
             alocacaoService.desalocarPalete(id);
-            redirectAttributes.addFlashAttribute("sucesso", "Endereço desocupado e palete liberado!");
+            redirectAttributes.addFlashAttribute("sucesso", "Palete retirado da prateleira e vaga liberada com sucesso!");
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("erro", "Erro ao desocupar: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("erro", "Falha ao dar baixa no palete: " + e.getMessage());
         }
         return "redirect:/";
     }
