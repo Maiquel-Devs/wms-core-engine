@@ -1,0 +1,47 @@
+/* Customizações para o painel de configurações */
+.form-control::placeholder {
+    color: #94a3b8 !important;
+    opacity: 1 !important;
+}
+
+.form-control,
+.form-select {
+    background-color: #0f172a !important;
+    border: 1px solid #475569 !important;
+    color: #f8fafc !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 0.25rem rgba(59, 130, 246, 0.25) !important;
+}
+
+.form-text {
+    color: #cbd5e1 !important;
+    font-size: 0.85rem;
+    margin-top: 0.4rem;
+}
+
+/* Tabela escura com alto contraste e acabamento fino */
+.table-config {
+    background-color: #1e293b;
+    margin-bottom: 0;
+}
+
+.table-config th {
+    background-color: #0f172a;
+    color: #94a3b8;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #334155;
+    padding: 12px 16px;
+}
+
+.table-config td {
+    background-color: transparent;
+    border-bottom: 1px solid #334155;
+    padding: 16px;
+    vertical-align: middle;
+}

@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<html lang="pt-BR"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,7 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- CSS Externo Isolado via Thymeleaf -->
-    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" th:href="@{/css/painel.css}">
 </head>
 <body>
 
@@ -29,6 +31,28 @@
             <button class="btn btn-brand btn-sm d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#modalRecebimento">
                 <i class="bi bi-plus-circle"></i> Novo Recebimento
             </button>
+
+            <!-- Menu de Usuário Autenticado & RBAC -->
+            <div class="d-flex align-items-center gap-2 ms-2 ps-3 border-start" sec:authorize="isAuthenticated()">
+                <span class="badge bg-light text-dark border py-2 px-3 d-flex align-items-center gap-2">
+                    <i class="bi bi-person-circle text-primary"></i>
+                    <span sec:authentication="name" class="fw-bold font-monospace"></span>
+                    <span sec:authorize="hasRole('ADMIN')" class="badge bg-dark-subtle text-dark ms-1">Admin</span>
+                    <span sec:authorize="hasRole('OPERADOR')" class="badge bg-secondary-subtle text-secondary ms-1">Operador</span>
+                </span>
+
+                <!-- Botão restrito apenas para ADMIN -->
+                <a th:href="@{/admin/configuracoes}" sec:authorize="hasRole('ADMIN')" class="btn btn-outline-dark btn-sm d-flex align-items-center gap-1" title="Configurações do Sistema">
+                    <i class="bi bi-sliders"></i> Admin
+                </a>
+
+                <!-- Formulário de Logout -->
+                <form th:action="@{/logout}" method="post" class="m-0">
+                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Encerrar Sessão">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 </nav>

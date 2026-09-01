@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WMS Core Engine - Autenticação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" th:href="@{/css/login.css}">
+</head>
+<body>
+
+<div class="login-card">
+    <div class="text-center mb-4">
+        <div class="d-inline-flex align-items-center justify-content-center bg-primary rounded-circle mb-3" style="width: 50px; height: 50px;">
+            <i class="bi bi-boxes fs-3 text-white"></i>
+        </div>
+        <h4 class="fw-bold">WMS Core Engine</h4>
+        <p class="text-secondary small">Sistema de Gerenciamento de Armazém</p>
+    </div>
+
+    <!-- Alertas de Erro e Logout -->
+    <div th:if="${param.error}" class="alert alert-danger py-2 small" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i> Usuário ou senha inválidos.
+    </div>
+    <div th:if="${param.logout}" class="alert alert-info py-2 small" role="alert">
+        <i class="bi bi-info-circle-fill me-2"></i> Sessão encerrada com sucesso.
+    </div>
+
+    <!-- Formulário de Login -->
+    <form th:action="@{/login}" method="post">
+        <div class="mb-3">
+            <label for="username" class="form-label text-secondary small fw-semibold">Usuário</label>
+            <div class="input-group">
+                <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-person"></i></span>
+                <input type="text" class="form-control" id="username" name="username" placeholder="Ex: operador ou admin" required autofocus>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label for="password" class="form-label text-secondary small fw-semibold">Senha</label>
+            <div class="input-group">
+                <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-lock"></i></span>
+                <input type="password" class="form-control" id="password" name="password" placeholder="••••••" required>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 mb-3">
+            <i class="bi bi-box-arrow-in-right me-2"></i> Acessar Sistema
+        </button>
+    </form>
+
+    <!-- Credenciais de Teste para Avaliação -->
+    <div class="demo-credentials text-secondary">
+        <div class="fw-semibold text-light mb-1"><i class="bi bi-key me-1"></i> Credenciais de Demonstração:</div>
+        <div>• <strong>Admin:</strong> admin / 123456</div>
+        <div>• <strong>Operador:</strong> operador / 123456</div>
+    </div>
+</div>
+
+</body>
+</html>
