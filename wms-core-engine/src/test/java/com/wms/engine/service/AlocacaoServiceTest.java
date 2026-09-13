@@ -22,11 +22,17 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+/**
+ * Suíte de testes unitários isolados para a classe {@link AlocacaoService}.
+ * Utiliza o Mockito para simular o comportamento dos repositórios e clientes externos,
+ * validando as regras de negócio puras de alocação, validações de piso e fallbacks de IA.
+ */
 @ExtendWith(MockitoExtension.class)
 class AlocacaoServiceTest {
 
@@ -55,14 +61,14 @@ class AlocacaoServiceTest {
         paletePesado.setId(1L);
         paletePesado.setCodigoLote("LT-UNIT-01");
         paletePesado.setProduto(produto);
-        paletePesado.setPesoTotalKg(new BigDecimal("650.00")); // > 500kg
+        paletePesado.setPesoTotalKg(new BigDecimal("650.00")); // Acima do limite de 500kg
         paletePesado.setVolumeTotalM3(new BigDecimal("1.2000"));
         paletePesado.setStatus(StatusPalete.RECEBIDO_DOCA);
 
         vagaPiso = new EnderecoEstoque();
         vagaPiso.setId(10L);
         vagaPiso.setCodigoEndereco("R01-B01-N01-P01");
-        vagaPiso.setNivel(1);
+        vagaPiso.setNivel(1); // Nível 1 (Piso)
         vagaPiso.setCapacidadePesoKg(new BigDecimal("1500.00"));
         vagaPiso.setCapacidadeVolumeM3(new BigDecimal("2.0000"));
         vagaPiso.setOcupado(false);
@@ -70,7 +76,7 @@ class AlocacaoServiceTest {
         vagaNivelSuperior = new EnderecoEstoque();
         vagaNivelSuperior.setId(20L);
         vagaNivelSuperior.setCodigoEndereco("R01-B01-N02-P01");
-        vagaNivelSuperior.setNivel(2);
+        vagaNivelSuperior.setNivel(2); // Nível superior
         vagaNivelSuperior.setCapacidadePesoKg(new BigDecimal("800.00"));
         vagaNivelSuperior.setCapacidadeVolumeM3(new BigDecimal("2.0000"));
         vagaNivelSuperior.setOcupado(false);
@@ -79,30 +85,32 @@ class AlocacaoServiceTest {
     @Test
     @DisplayName("Deve barrar com CapacidadeExcedidaException carga > 500kg se for alocada em nível superior ao solo")
     void naoDevePermitirCargaPesadaAcimaDoPiso() {
+        // Arrange
         when(paleteRepository.findById(1L)).thenReturn(Optional.of(paletePesado));
         when(enderecoRepository.findById(20L)).thenReturn(Optional.of(vagaNivelSuperior));
 
-        CapacidadeExcedidaException exception = assertThrows(
-                CapacidadeExcedidaException.class,
-                () -> alocacaoService.alocarPalete(1L, 20L)
-        );
+        // Act & Assert
+        assertThatThrownBy(() -> alocacaoService.alocarPalete(1L, 20L))
+                .as("Cargas superiores a 500kg não podem ser direcionadas para andares superiores")
+                .isInstanceOf(CapacidadeExcedidaException.class)
+                .hasMessageContaining("Nível 1 (Piso)");
 
-        assertTrue(exception.getMessage().contains("Nível 1 (Piso)"));
         verify(paleteRepository, never()).save(any());
     }
 
     @Test
     @DisplayName("Deve impedir alocação em vaga que já está ocupada")
     void naoDeveAlocarEmVagaOcupada() {
+        // Arrange
         vagaPiso.setOcupado(true);
 
         when(paleteRepository.findById(1L)).thenReturn(Optional.of(paletePesado));
         when(enderecoRepository.findById(10L)).thenReturn(Optional.of(vagaPiso));
 
-        assertThrows(
-                EnderecoOcupadoException.class,
-                () -> alocacaoService.alocarPalete(1L, 10L)
-        );
+        // Act & Assert
+        assertThatThrownBy(() -> alocacaoService.alocarPalete(1L, 10L))
+                .as("O sistema deve impedir conflitos de endereçamento em vagas já ocupadas")
+                .isInstanceOf(EnderecoOcupadoException.class);
 
         verify(paleteRepository, never()).save(any());
     }
@@ -110,16 +118,31 @@ class AlocacaoServiceTest {
     @Test
     @DisplayName("Deve alocar palete no solo com sucesso e atualizar status para ARMAZENADO")
     void deveAlocarComSucessoNoSolo() {
+        // Arrange
         when(paleteRepository.findById(1L)).thenReturn(Optional.of(paletePesado));
         when(enderecoRepository.findById(10L)).thenReturn(Optional.of(vagaPiso));
         when(paleteRepository.save(any(Palete.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
+        // Act
         Palete paleteAlocado = alocacaoService.alocarPalete(1L, 10L);
 
-        assertEquals(StatusPalete.ARMAZENADO, paleteAlocado.getStatus());
-        assertEquals(vagaPiso, paleteAlocado.getEndereco());
-        assertTrue(vagaPiso.getOcupado());
-        assertNotNull(paleteAlocado.getAlocadoEm());
+        // Assert
+        assertThat(paleteAlocado.getStatus())
+                .as("O status do palete deve transicionar para ARMAZENADO")
+                .isEqualTo(StatusPalete.ARMAZENADO);
+
+        assertThat(paleteAlocado.getEndereco())
+                .as("O palete deve estar vinculado ao endereço físico correto")
+                .isEqualTo(vagaPiso);
+
+        assertThat(vagaPiso.getOcupado())
+                .as("A vaga física deve ser marcada como ocupada")
+                .isTrue();
+
+        assertThat(paleteAlocado.getAlocadoEm())
+                .as("O timestamp de alocação deve ser gerado")
+                .isNotNull();
+
         verify(enderecoRepository, times(1)).save(vagaPiso);
         verify(paleteRepository, times(1)).save(paletePesado);
     }
@@ -127,18 +150,32 @@ class AlocacaoServiceTest {
     @Test
     @DisplayName("Deve ativar fallback heurístico determinístico quando IA falhar ou retornar vaga inexistente")
     void deveAcionarFallbackHeuristicoSeIaFalhar() {
+        // Arrange
         when(paleteRepository.findById(1L)).thenReturn(Optional.of(paletePesado));
         when(enderecoRepository.buscarVagasDisponiveis(any(), any(), eq(1)))
                 .thenReturn(List.of(vagaPiso));
 
-        // Simula erro de API da IA (ex: timeout ou 429)
+        // Simula falha catastrófica ou timeout na API externa de LLM
         when(aiClient.obterSugestaoAlocacao(anyString())).thenThrow(new RuntimeException("API indisponível"));
 
+        // Act
         AlocacaoDecisaoDTO decisao = alocacaoService.sugerirVagaInteligente(1L);
 
-        assertNotNull(decisao);
-        assertEquals("R01-B01-N01-P01", decisao.vagaSugerida());
-        assertEquals("MOTOR_HEURISTICO_LOCAL", decisao.origemDecisao());
-        assertTrue(decisao.justificativa().contains("Alocação determinística"));
+        // Assert
+        assertThat(decisao)
+                .as("O serviço deve retornar uma decisão de contingência e nunca retornar nulo")
+                .isNotNull();
+
+        assertThat(decisao.vagaSugerida())
+                .as("A vaga sugerida pelo fallback deve corresponder à melhor vaga física real encontrada")
+                .isEqualTo("R01-B01-N01-P01");
+
+        assertThat(decisao.origemDecisao())
+                .as("A origem da decisão informada no DTO deve indicar claramente o motor local")
+                .isEqualTo("MOTOR_HEURISTICO_LOCAL");
+
+        assertThat(decisao.justificativa())
+                .as("A justificativa técnica deve detalhar o acionamento do algoritmo determinístico")
+                .contains("Alocação determinística");
     }
 }

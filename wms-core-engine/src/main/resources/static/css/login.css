@@ -1,50 +1,82 @@
+/* ==========================================================================
+   Customizações Visuais - Tela de Autenticação (Login) WMS
+   Tema Escuro (Dark Mode) - Centralização Flexbox e Alto Contraste
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Layout Global (Fundo e Alinhamento)
+   -------------------------------------------------------------------------- */
 body {
-    background-color: #0f172a;
-    color: #f8fafc;
-    min-height: 100vh;
+    /* Centralização absoluta do cartão de login na tela (Flexbox) */
     display: flex;
     align-items: center;
     justify-content: center;
+    min-height: 100vh;
+
+    /* Cores base do tema */
+    background-color: #0f172a; /* Slate 900 */
+    color: #f8fafc;            /* Slate 50 */
 }
 
+/* --------------------------------------------------------------------------
+   2. Container Principal (Cartão de Login)
+   -------------------------------------------------------------------------- */
 .login-card {
-    background-color: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-    max-width: 420px;
+    /* Dimensões e espaçamento interno */
     width: 100%;
+    max-width: 420px;
     padding: 2.5rem;
+
+    /* Estilização visual (Fundo, bordas arredondadas e profundidade) */
+    background-color: #1e293b; /* Slate 800 */
+    border: 1px solid #334155; /* Slate 700 */
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); /* Sombra densa para destacar do fundo */
 }
 
+/* --------------------------------------------------------------------------
+   3. Formulários e Botões (Interação)
+   -------------------------------------------------------------------------- */
+
+/* Campos de entrada de dados (Usuário e Senha) */
 .form-control {
-    background-color: #0f172a;
-    border: 1px solid #334155;
+    background-color: #0f172a; /* Slate 900 */
+    border: 1px solid #334155; /* Slate 700 */
     color: #f8fafc;
 }
 
+/* Efeito de foco quando o usuário clica no campo */
 .form-control:focus {
     background-color: #0f172a;
-    border-color: #3b82f6;
+    border-color: #3b82f6;     /* Azul destaque (Blue 500) */
     color: #f8fafc;
     box-shadow: 0 0 0 0.25rem rgba(59, 130, 246, 0.25);
 }
 
+/* Botão principal de ação (Entrar) */
 .btn-primary {
-    background-color: #2563eb;
-    border: none;
     padding: 0.75rem;
     font-weight: 600;
+    background-color: #2563eb; /* Blue 600 */
+    border: none;
 }
 
+/* Efeito Hover do botão de ação */
 .btn-primary:hover {
-    background-color: #1d4ed8;
+    background-color: #1d4ed8; /* Blue 700 (Escurece ao passar o mouse) */
 }
 
+/* --------------------------------------------------------------------------
+   4. Elementos Auxiliares
+   -------------------------------------------------------------------------- */
+
+/* Caixa informativa de credenciais de demonstração (Acesso rápido) */
 .demo-credentials {
-    background-color: #0f172a;
-    border: 1px dashed #334155;
-    border-radius: 8px;
     padding: 0.75rem;
     font-size: 0.85rem;
+
+    /* Design diferenciado com borda tracejada para indicar que é um bloco de 'ajuda' */
+    background-color: #0f172a; /* Slate 900 */
+    border: 1px dashed #334155; /* Slate 700 */
+    border-radius: 8px;
 }

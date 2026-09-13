@@ -19,6 +19,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Serviço principal de domínio (Use Case) responsável por orquestrar o armazenamento e
+ * a expedição física das mercadorias.
+ * Integra o motor de regras heurísticas locais com o cliente de Inteligência Artificial,
+ * garantindo a segurança estrutural do armazém (limites de peso/volume).
+ */
 @Service
 public class AlocacaoService {
 
@@ -41,10 +47,18 @@ public class AlocacaoService {
         this.objectMapper = new ObjectMapper();
     }
 
+    /**
+     * Solicita uma sugestão otimizada de alocação integrando o cliente de IA.
+     * Em caso de falha da IA ou incompatibilidade da vaga sugerida, aciona automaticamente
+     * um fallback determinístico (motor heurístico local).
+     *
+     * @param paleteId Identificador do palete aguardando na doca.
+     * @return DTO contendo a decisão de alocação e a justificativa técnica.
+     */
     @Transactional(readOnly = true)
     public AlocacaoDecisaoDTO sugerirVagaInteligente(Long paleteId) {
         Palete palete = paleteRepository.findById(paleteId)
-                .orElseThrow(() -> new IllegalArgumentException("Palete não encontrado com ID: " + paleteId));
+                .orElseThrow(() -> new IllegalArgumentException(String.format("Palete não encontrado com ID: %d", paleteId)));
 
         if (palete.getEndereco() != null || palete.getStatus() != StatusPalete.RECEBIDO_DOCA) {
             throw new IllegalStateException("Apenas paletes pendentes na doca podem receber sugestão de vaga.");
@@ -58,10 +72,10 @@ public class AlocacaoService {
         );
 
         if (vagasCompativeis.isEmpty()) {
-            throw new CapacidadeExcedidaException(
-                    "Nenhuma posição física compatível encontrada para o palete (Peso: " +
-                            palete.getPesoTotalKg() + "kg, Volume: " + palete.getVolumeTotalM3() + "m³)"
-            );
+            throw new CapacidadeExcedidaException(String.format(
+                    "Nenhuma posição física compatível encontrada para o palete (Peso: %skg, Volume: %sm³)",
+                    palete.getPesoTotalKg(), palete.getVolumeTotalM3()
+            ));
         }
 
         EnderecoEstoque melhorVagaReal = vagasCompativeis.get(0);
@@ -78,7 +92,7 @@ public class AlocacaoService {
                 return new AlocacaoDecisaoDTO(
                         melhorVagaReal.getCodigoEndereco(),
                         "MOTOR_HEURISTICO_LOCAL",
-                        String.format("Alocação direta de contingência no solo (Posição: %s, Nível %d) devido à indisponibilidade temporária da IA.",
+                        String.format("Alocação direta de contingência no solo (Posição: %s, Nível %d) devido à inconsistência na sugestão da IA.",
                                 melhorVagaReal.getCodigoEndereco(), melhorVagaReal.getNivel())
                 );
             }
@@ -86,7 +100,7 @@ public class AlocacaoService {
             return decisao;
 
         } catch (Exception e) {
-            log.warn("Acionando fallback determinístico local: {}", e.getMessage());
+            log.warn("Falha na integração com IA. Acionando fallback determinístico local: {}", e.getMessage());
             return new AlocacaoDecisaoDTO(
                     melhorVagaReal.getCodigoEndereco(),
                     "MOTOR_HEURISTICO_LOCAL",
@@ -123,6 +137,13 @@ public class AlocacaoService {
         return sb.toString();
     }
 
+    /**
+     * Executa o motor heurístico local para encontrar a melhor vaga fisicamente compatível.
+     *
+     * @param palete A entidade palete validada contendo as métricas de peso e cubagem.
+     * @return O melhor endereço de estoque disponível.
+     * @throws CapacidadeExcedidaException Se não houver vaga que suporte a carga.
+     */
     @Transactional(readOnly = true)
     public EnderecoEstoque sugerirMelhorEndereco(Palete palete) {
         Integer nivelExigido = null;
@@ -131,57 +152,62 @@ public class AlocacaoService {
             nivelExigido = NIVEL_PISO;
         }
 
-        List<EnderecoEstoque> vagas = enderecoRepository.buscarVagasDisponiveis(
+        return enderecoRepository.buscarVagasDisponiveis(
                 palete.getPesoTotalKg(),
                 palete.getVolumeTotalM3(),
                 nivelExigido
-        );
-
-        return vagas.stream()
-                .findFirst()
-                .orElseThrow(() -> new CapacidadeExcedidaException(
-                        "Nenhuma posição compatível encontrada para o palete (Peso: " +
-                                palete.getPesoTotalKg() + "kg, Volume: " + palete.getVolumeTotalM3() + "m³)"
-                ));
+        ).stream().findFirst().orElseThrow(() -> new CapacidadeExcedidaException(String.format(
+                "Nenhuma posição compatível encontrada para o palete (Peso: %skg, Volume: %sm³)",
+                palete.getPesoTotalKg(), palete.getVolumeTotalM3()
+        )));
     }
 
+    /**
+     * Executa a transação de alocação de um palete em uma vaga específica.
+     * Processa rigorosas validações (guard clauses) de capacidade, volume e regras de piso
+     * antes de confirmar o armazenamento.
+     *
+     * @param paleteId   Identificador do palete na doca.
+     * @param enderecoId Identificador do endereço de destino.
+     * @return O palete atualizado com o novo status.
+     */
     @Transactional
     public Palete alocarPalete(Long paleteId, Long enderecoId) {
         Palete palete = paleteRepository.findById(paleteId)
-                .orElseThrow(() -> new IllegalArgumentException("Palete não encontrado com ID: " + paleteId));
+                .orElseThrow(() -> new IllegalArgumentException(String.format("Palete não encontrado com ID: %d", paleteId)));
 
         if (palete.getStatus() == StatusPalete.EXPEDIDO) {
             throw new IllegalStateException("Paletes já expedidos não podem ser realocados.");
         }
 
         EnderecoEstoque endereco = enderecoRepository.findById(enderecoId)
-                .orElseThrow(() -> new IllegalArgumentException("Endereço não encontrado com ID: " + enderecoId));
+                .orElseThrow(() -> new IllegalArgumentException(String.format("Endereço não encontrado com ID: %d", enderecoId)));
 
         if (Boolean.TRUE.equals(endereco.getOcupado())) {
-            throw new EnderecoOcupadoException("O endereço " + endereco.getCodigoEndereco() + " já está ocupado.");
+            throw new EnderecoOcupadoException(String.format("O endereço %s já está ocupado.", endereco.getCodigoEndereco()));
         }
 
         if (palete.getPesoTotalKg().compareTo(endereco.getCapacidadePesoKg()) > 0) {
-            throw new CapacidadeExcedidaException(
-                    "Peso do palete (" + palete.getPesoTotalKg() + "kg) excede a capacidade do endereço (" +
-                            endereco.getCapacidadePesoKg() + "kg)."
-            );
+            throw new CapacidadeExcedidaException(String.format(
+                    "Peso do palete (%skg) excede a capacidade do endereço (%skg).",
+                    palete.getPesoTotalKg(), endereco.getCapacidadePesoKg()
+            ));
         }
 
         if (palete.getVolumeTotalM3().compareTo(endereco.getCapacidadeVolumeM3()) > 0) {
-            throw new CapacidadeExcedidaException(
-                    "Volume do palete (" + palete.getVolumeTotalM3() + "m³) excede a cubagem do endereço (" +
-                            endereco.getCapacidadeVolumeM3() + "m³)."
-            );
+            throw new CapacidadeExcedidaException(String.format(
+                    "Volume do palete (%sm³) excede a cubagem do endereço (%sm³).",
+                    palete.getVolumeTotalM3(), endereco.getCapacidadeVolumeM3()
+            ));
         }
 
         if (palete.getPesoTotalKg().compareTo(LIMITE_PESO_NIVEL_SUPERIOR) > 0 && !endereco.getNivel().equals(NIVEL_PISO)) {
-            throw new CapacidadeExcedidaException(
-                    "Cargas superiores a " + LIMITE_PESO_NIVEL_SUPERIOR + "kg devem ser alocadas no Nível 1 (Piso)."
-            );
+            throw new CapacidadeExcedidaException(String.format(
+                    "Cargas superiores a %skg devem ser alocadas no Nível 1 (Piso).",
+                    LIMITE_PESO_NIVEL_SUPERIOR
+            ));
         }
 
-        // Transição de estado: RECEBIDO_DOCA -> ARMAZENADO
         endereco.setOcupado(true);
         palete.setEndereco(endereco);
         palete.setStatus(StatusPalete.ARMAZENADO);
@@ -193,12 +219,14 @@ public class AlocacaoService {
 
     /**
      * Efetiva a baixa por expedição (Checkout de Saída).
-     * Libera o endereço físico e arquiva o registro como EXPEDIDO.
+     * Libera o endereço físico na estante e arquiva o registro da carga como EXPEDIDO.
+     *
+     * @param paleteId Identificador único do palete a ser despachado.
      */
     @Transactional
     public void desalocarPalete(Long paleteId) {
         Palete palete = paleteRepository.findById(paleteId)
-                .orElseThrow(() -> new IllegalArgumentException("Palete não encontrado com ID: " + paleteId));
+                .orElseThrow(() -> new IllegalArgumentException(String.format("Palete não encontrado com ID: %d", paleteId)));
 
         EnderecoEstoque endereco = palete.getEndereco();
         if (endereco != null) {
@@ -206,7 +234,6 @@ public class AlocacaoService {
             enderecoRepository.save(endereco);
         }
 
-        // Transição de estado: ARMAZENADO -> EXPEDIDO
         palete.setEndereco(null);
         palete.setStatus(StatusPalete.EXPEDIDO);
         palete.setExpedidoEm(LocalDateTime.now());
@@ -214,12 +241,14 @@ public class AlocacaoService {
     }
 
     /**
-     * Exclui fisicamente um palete que ainda está aguardando vaga na doca.
+     * Exclui fisicamente do banco de dados um palete que ainda está aguardando vaga na doca.
+     *
+     * @param paleteId Identificador do palete a ser estornado/excluído.
      */
     @Transactional
     public void excluirPaleteDaDoca(Long paleteId) {
         Palete palete = paleteRepository.findById(paleteId)
-                .orElseThrow(() -> new IllegalArgumentException("Palete não encontrado com ID: " + paleteId));
+                .orElseThrow(() -> new IllegalArgumentException(String.format("Palete não encontrado com ID: %d", paleteId)));
 
         if (palete.getStatus() != StatusPalete.RECEBIDO_DOCA || palete.getEndereco() != null) {
             throw new IllegalStateException("Apenas paletes pendentes na doca podem ser removidos.");
@@ -228,10 +257,17 @@ public class AlocacaoService {
         paleteRepository.delete(palete);
     }
 
+    /**
+     * Ponto de entrada simplificado para buscar sugestão de vaga baseado apenas no ID do palete.
+     * Valida se a carga está elegível para armazenamento antes de acionar o motor de busca.
+     *
+     * @param paleteId Identificador do palete aguardando na doca.
+     * @return O endereço físico (vaga) sugerido pelo motor local.
+     */
     @Transactional(readOnly = true)
     public EnderecoEstoque sugerirVaga(Long paleteId) {
         Palete palete = paleteRepository.findById(paleteId)
-                .orElseThrow(() -> new IllegalArgumentException("Palete não encontrado com ID: " + paleteId));
+                .orElseThrow(() -> new IllegalArgumentException(String.format("Palete não encontrado com ID: %d", paleteId)));
 
         if (palete.getEndereco() != null || palete.getStatus() != StatusPalete.RECEBIDO_DOCA) {
             throw new IllegalStateException("O palete não está aguardando vaga na doca.");

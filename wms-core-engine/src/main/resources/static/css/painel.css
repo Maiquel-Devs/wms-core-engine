@@ -1,122 +1,157 @@
+/* ==========================================================================
+   Customizações Visuais - Dashboard e Mapa do Armazém WMS
+   Tema Claro (Light Mode) baseado em CSS Variables (Design System)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Variáveis de Tema (Design Tokens)
+   -------------------------------------------------------------------------- */
 :root {
-    --bg-canvas: #f8fafc;
-    --border-subtle: #e2e8f0;
-    --card-bg: #ffffff;
-    --text-main: #0f172a;
-    --text-muted: #64748b;
-    --brand-dark: #0f172a;
-    --success-soft: #ecfdf5;
-    --success-text: #059669;
-    --danger-soft: #fef2f2;
-    --danger-text: #dc2626;
-    --warning-soft: #fffbeb;
-    --warning-text: #d97706;
+    /* Cores de Fundo e Estrutura */
+    --bg-canvas: #f8fafc;       /* Fundo principal da aplicação (Slate 50) */
+    --border-subtle: #e2e8f0;   /* Bordas suaves para cartões e tabelas (Slate 200) */
+    --card-bg: #ffffff;         /* Fundo dos componentes (Branco puro) */
+
+    /* Tipografia e Marca */
+    --text-main: #0f172a;       /* Texto principal de alto contraste (Slate 900) */
+    --text-muted: #64748b;      /* Texto secundário/legenda (Slate 500) */
+    --brand-dark: #0f172a;      /* Cor principal da marca/botões (Slate 900) */
+
+    /* Cores Semânticas de Status (Mapeamento Visual do Galpão) */
+    --success-soft: #ecfdf5;    /* Fundo verde claro para vagas LIVRES */
+    --success-text: #059669;    /* Texto verde destaque */
+    --danger-soft: #fef2f2;     /* Fundo vermelho claro para vagas OCUPADAS */
+    --danger-text: #dc2626;     /* Texto vermelho destaque */
+    --warning-soft: #fffbeb;    /* Fundo amarelo para vagas de PISO/CHÃO */
+    --warning-text: #d97706;    /* Texto amarelo destaque */
 }
 
+/* --------------------------------------------------------------------------
+   2. Layout Global e Tipografia base
+   -------------------------------------------------------------------------- */
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    padding-bottom: 6rem; /* Respiro no final da página para scroll */
     background-color: var(--bg-canvas);
     color: var(--text-main);
+
+    /* Fontes otimizadas para leitura de dados técnicos */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-font-smoothing: antialiased;
-    padding-bottom: 6rem;
 }
 
-/* Navbar */
+/* --------------------------------------------------------------------------
+   3. Navegação (Navbar)
+   -------------------------------------------------------------------------- */
 .navbar-custom {
     background-color: #ffffff;
     border-bottom: 1px solid var(--border-subtle);
 }
 
-/* KPI Cards */
+/* --------------------------------------------------------------------------
+   4. Dashboard - Métricas Principais (KPIs)
+   -------------------------------------------------------------------------- */
 .kpi-card {
+    padding: 1.25rem;
     background-color: var(--card-bg);
     border: 1px solid var(--border-subtle);
     border-radius: 10px;
-    padding: 1.25rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); /* Sombra ultra leve para profundidade */
 }
 
 .kpi-label {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    margin: 0;
     color: var(--text-muted);
+    font-size: 0.8rem;
     font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em; /* Facilita a leitura em letras maiúsculas */
 }
 
 .kpi-value {
+    margin-top: 0.35rem;
+    color: var(--text-main);
     font-size: 1.85rem;
     font-weight: 700;
-    color: var(--text-main);
-    margin-top: 0.35rem;
 }
 
-/* Warehouse Container (Sem scroll interno, fluxo aberto) */
+/* --------------------------------------------------------------------------
+   5. Mapeamento do Armazém (Estantes e Vagas)
+   -------------------------------------------------------------------------- */
+
+/* Container que agrupa todas as posições de uma rua/bloco */
 .rack-container {
+    padding: 1.5rem;
+    margin-bottom: 2.5rem;
     background: var(--card-bg);
     border: 1px solid var(--border-subtle);
     border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 2.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
-/* Card Original do Primeiro Design (Vertical e Espaçado) */
+/* Representação visual de uma posição de estoque (Vaga) individual */
 .slot-card {
+    padding: 0.85rem;
+    background-color: #ffffff;
     border: 1px solid var(--border-subtle);
     border-radius: 8px;
-    padding: 0.85rem;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-    background-color: #ffffff;
+    transition: transform 0.15s ease, box-shadow 0.15s ease; /* Animação suave no hover */
 }
 
+/* Interação com o mapa físico */
 .slot-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-2px); /* Eleva o cartão levemente */
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
 }
 
+/* Modificadores de estado da vaga baseados em regras de negócio */
 .slot-free {
-    border-left: 4px solid var(--success-text);
+    border-left: 4px solid var(--success-text); /* Indicador lateral verde */
 }
 
 .slot-occupied {
-    background-color: #fafafa;
-    border-left: 4px solid var(--danger-text);
+    background-color: #fafafa; /* Fundo levemente cinza para indicar uso */
+    border-left: 4px solid var(--danger-text);  /* Indicador lateral vermelho */
 }
 
-/* Badges */
+/* --------------------------------------------------------------------------
+   6. Indicadores Visuais (Badges de Status)
+   -------------------------------------------------------------------------- */
 .badge-free {
-    background-color: var(--success-soft);
-    color: var(--success-text);
     font-weight: 600;
+    color: var(--success-text);
+    background-color: var(--success-soft);
 }
 
 .badge-occupied {
-    background-color: var(--danger-soft);
+    font-weight: 600;
     color: var(--danger-text);
-    font-weight: 600;
+    background-color: var(--danger-soft);
 }
 
+/* Indicador específico para vagas nível 1 (Obrigatório para cargas pesadas) */
 .badge-floor {
-    background-color: var(--warning-soft);
-    color: var(--warning-text);
     font-weight: 600;
+    color: var(--warning-text);
+    background-color: var(--warning-soft);
 }
 
-/* Botões & Tabelas */
+/* --------------------------------------------------------------------------
+   7. Componentes Reutilizáveis (Botões e Tabelas)
+   -------------------------------------------------------------------------- */
 .btn-brand {
-    background-color: var(--brand-dark);
-    color: #ffffff;
     font-weight: 500;
+    color: #ffffff;
+    background-color: var(--brand-dark);
 }
 
 .btn-brand:hover {
-    background-color: #1e293b;
     color: #ffffff;
+    background-color: #1e293b; /* Fica levemente mais claro no hover */
 }
 
+/* Estilização base para tabelas de listagem dentro do painel claro */
 .table-custom {
+    overflow: hidden; /* Evita que o fundo da tabela vaze as bordas arredondadas */
     border: 1px solid var(--border-subtle);
     border-radius: 8px;
-    overflow: hidden;
 }
