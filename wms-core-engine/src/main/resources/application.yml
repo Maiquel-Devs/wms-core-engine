@@ -2,6 +2,10 @@ spring:
   application:
     name: wms-core-engine
 
+  main:
+    # 1. Desliga o banner ASCII do Spring Boot no console/logs
+    banner-mode: "off"
+
   docker:
     compose:
       enabled: false
@@ -29,3 +33,12 @@ spring:
 
 server:
   port: 8080
+  error:
+    # 2. Desativa a página padrão de erro (Whitelabel) do Spring Boot que o Wappalyzer caça
+    whitelabel:
+      enabled: false
+  servlet:
+    session:
+      cookie:
+        # 3. Renomeia o cookie de sessão: de JSESSIONID (padrão Java/Tomcat) para um nome neutro
+        name: APP_SESSION_ID
