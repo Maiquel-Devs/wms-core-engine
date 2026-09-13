@@ -2,6 +2,10 @@ spring:
   application:
     name: wms-core-engine
 
+  docker:
+    compose:
+      enabled: false
+
   datasource:
     url: jdbc:postgresql://localhost:5432/wms_db
     username: postgres

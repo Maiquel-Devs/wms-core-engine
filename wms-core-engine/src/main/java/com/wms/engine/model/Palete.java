@@ -35,6 +35,13 @@ public class Palete {
     @Column(name = "alocado_em")
     private LocalDateTime alocadoEm;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 30)
+    private StatusPalete status = StatusPalete.RECEBIDO_DOCA;
+
+    @Column(name = "expedido_em")
+    private LocalDateTime expedidoEm;
+
     public Palete() {}
 
     // Getters e Setters
@@ -61,4 +68,10 @@ public class Palete {
 
     public LocalDateTime getAlocadoEm() { return alocadoEm; }
     public void setAlocadoEm(LocalDateTime alocadoEm) { this.alocadoEm = alocadoEm; }
+
+    public StatusPalete getStatus() { return status; }
+    public void setStatus(StatusPalete status) { this.status = status; }
+
+    public LocalDateTime getExpedidoEm() { return expedidoEm; }
+    public void setExpedidoEm(LocalDateTime expedidoEm) { this.expedidoEm = expedidoEm; }
 }
