@@ -22,22 +22,18 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Armazena o CSRF em cookie simples e renomeia para evitar fingerprinting de Java/Spring
-                .csrf(csrf -> {
-                    CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
-                    repository.setCookieName("APP_CSRF");
-                    repository.setHeaderName("X-APP-CSRF");
-                    csrf.csrfTokenRepository(repository);
-                })
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/css/**", "/js/**", "/images/**", "/webjars/**").permitAll()
+                        .requestMatchers("/css/**", "/js/**", "/images/**", "/webjars/**", "/favicon.ico", "/favicon.svg").permitAll()
                         .requestMatchers("/login").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/", "/paletes/**").hasAnyRole("OPERADOR", "ADMIN")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 )
                 .formLogin(form -> form
                         .loginPage("/login")
@@ -48,7 +44,7 @@ public class SecurityConfig {
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/login?logout=true")
-                        .deleteCookies("APP_SESSION_ID", "APP_CSRF")
+                        .deleteCookies("APP_SESSION_ID", "XSRF-TOKEN")
                         .permitAll()
                 );
 
