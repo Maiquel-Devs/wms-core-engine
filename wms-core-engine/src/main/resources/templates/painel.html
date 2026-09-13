@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
-    
+
     <!-- CSS Externo Isolado via Thymeleaf -->
     <link rel="stylesheet" th:href="@{/css/painel.css}">
 </head>
@@ -168,10 +168,10 @@
                         <table class="table table-hover align-middle mb-0 border-top">
                             <thead class="table-light small text-muted text-uppercase" style="letter-spacing: 0.5px;">
                             <tr>
-                                <th style="width: 22%;" class="ps-3 py-3 border-0 rounded-start">Lote</th>
-                                <th style="width: 35%;" class="py-3 border-0">Produto SKU</th>
-                                <th style="width: 23%;" class="py-3 border-0">Peso / Cubagem</th>
-                                <th style="width: 20%;" class="text-end pe-3 py-3 border-0 rounded-end">Ações</th>
+                                <th style="width: 20%;" class="ps-3 py-3 border-0 rounded-start">Lote</th>
+                                <th style="width: 32%;" class="py-3 border-0">Produto SKU</th>
+                                <th style="width: 20%;" class="py-3 border-0">Peso / Cubagem</th>
+                                <th style="width: 28%;" class="text-end pe-3 py-3 border-0 rounded-end">Ações</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -193,20 +193,39 @@
                                     <div class="fw-semibold text-dark" th:text="${palete.pesoTotalKg} + ' kg'">650 kg</div>
                                     <small class="text-muted" th:text="${palete.volumeTotalM3} + ' m³'">1.2 m³</small>
                                 </td>
-                                <td class="text-end pe-3 py-3">
-                                    <div class="btn-group">
+                                <td class="text-end pe-3 py-3 text-nowrap">
+                                    <div class="d-inline-flex align-items-center gap-1">
                                         <!-- Sugerir Vaga -->
-                                        <a th:href="@{/paletes/{id}/sugerir(id=${palete.id})}" class="btn btn-outline-dark btn-sm" title="Calcular Vaga Ideal">
-                                            <i class="bi bi-cpu"></i> Sugerir Vaga
+                                        <a th:href="@{'/paletes/' + ${palete.id} + '/sugerir'}"
+                                           class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm"
+                                           title="Calcular Vaga Ideal">
+                                            <i class="bi bi-cpu"></i>
+                                            <span>Sugerir</span>
                                         </a>
+
                                         <!-- Alocar Manual -->
-                                        <button class="btn btn-dark btn-sm" data-bs-toggle="modal" th:data-bs-target="'#modalAlocar-' + ${palete.id}">
-                                            Alocar
+                                        <button type="button"
+                                                class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm"
+                                                data-bs-toggle="modal"
+                                                th:data-bs-target="|#modalAlocar-${palete.id}|">
+                                            <i class="bi bi-box-arrow-in-down-right"></i>
+                                            <span>Alocar</span>
                                         </button>
+
+                                        <!-- Excluir Palete da Doca -->
+                                        <form th:action="@{'/paletes/' + ${palete.id} + '/excluir'}" method="post" class="m-0 d-inline"
+                                              onsubmit="return confirm('Deseja realmente remover este palete da doca?');">
+                                            <button type="submit"
+                                                    class="btn btn-outline-danger btn-sm d-inline-flex align-items-center justify-content-center shadow-sm"
+                                                    style="width: 31px; height: 31px;"
+                                                    title="Remover Palete da Doca">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
                                     </div>
 
                                     <!-- Modal de Alocação Manual -->
-                                    <div class="modal fade text-start" th:id="'modalAlocar-' + ${palete.id}" tabindex="-1">
+                                    <div class="modal fade text-start" th:id="|modalAlocar-${palete.id}|" tabindex="-1">
                                         <div class="modal-dialog">
                                             <div class="modal-content">
                                                 <form th:action="@{/paletes/alocar}" method="post">
@@ -277,7 +296,7 @@
                                     <small class="text-muted" th:text="${palete.volumeTotalM3} + ' m³'"></small>
                                 </td>
                                 <td class="text-end pe-3 py-3">
-                                    <form th:action="@{/paletes/{id}/desalocar(id=${palete.id})}" method="post">
+                                    <form th:action="@{'/paletes/' + ${palete.id} + '/desalocar'}" method="post">
                                         <button type="submit" class="btn btn-outline-danger btn-sm" title="Desalocar / Expedição">
                                             <i class="bi bi-box-arrow-up-right"></i> Baixa
                                         </button>

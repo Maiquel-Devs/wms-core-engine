@@ -13,4 +13,6 @@ public interface PaleteRepository extends JpaRepository<Palete, Long> {
     List<Palete> findByStatus(StatusPalete status);
 
     List<Palete> findTop10ByStatusOrderByExpedidoEmDesc(StatusPalete status);
+
+    boolean existsByCodigoLote(String codigoLote);
 }

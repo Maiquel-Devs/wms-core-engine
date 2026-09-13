@@ -213,6 +213,21 @@ public class AlocacaoService {
         paleteRepository.save(palete);
     }
 
+    /**
+     * Exclui fisicamente um palete que ainda está aguardando vaga na doca.
+     */
+    @Transactional
+    public void excluirPaleteDaDoca(Long paleteId) {
+        Palete palete = paleteRepository.findById(paleteId)
+                .orElseThrow(() -> new IllegalArgumentException("Palete não encontrado com ID: " + paleteId));
+
+        if (palete.getStatus() != StatusPalete.RECEBIDO_DOCA || palete.getEndereco() != null) {
+            throw new IllegalStateException("Apenas paletes pendentes na doca podem ser removidos.");
+        }
+
+        paleteRepository.delete(palete);
+    }
+
     @Transactional(readOnly = true)
     public EnderecoEstoque sugerirVaga(Long paleteId) {
         Palete palete = paleteRepository.findById(paleteId)

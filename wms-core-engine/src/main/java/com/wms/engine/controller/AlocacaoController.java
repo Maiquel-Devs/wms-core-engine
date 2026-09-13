@@ -12,6 +12,9 @@ import com.wms.engine.repository.EnderecoEstoqueRepository;
 import com.wms.engine.repository.PaleteRepository;
 import com.wms.engine.repository.ProdutoRepository;
 import com.wms.engine.service.AlocacaoService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -24,6 +27,8 @@ import java.util.List;
 @Controller
 @RequestMapping("/")
 public class AlocacaoController {
+
+    private static final Logger log = LoggerFactory.getLogger(AlocacaoController.class);
 
     private final AlocacaoService alocacaoService;
     private final PaleteRepository paleteRepository;
@@ -69,7 +74,8 @@ public class AlocacaoController {
                     .header("Content-Type", "application/json; charset=UTF-8")
                     .body(respostaIA);
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("{\"erro\": \"" + e.getMessage() + "\"}");
+            log.error("Falha no teste direto de integração com o provedor de IA: {}", e.getMessage());
+            return ResponseEntity.internalServerError().body("{\"erro\": \"Falha ao comunicar com o serviço de IA.\"}");
         }
     }
 
@@ -96,17 +102,29 @@ public class AlocacaoController {
     }
 
     /**
-     * Dá entrada em novos lotes/paletes na doca de recebimento
+     * Dá entrada em novos lotes/paletes na doca de recebimento com validação de unicidade
      */
     @PostMapping("/paletes/receber")
     public String receberPaleteNaDoca(@ModelAttribute("novoPalete") NovoPaleteDTO dto,
                                       RedirectAttributes redirectAttributes) {
         try {
+            String codigoLoteFormatado = dto.getCodigoLote() != null ? dto.getCodigoLote().trim().toUpperCase() : "";
+
+            if (codigoLoteFormatado.isBlank()) {
+                redirectAttributes.addFlashAttribute("erro", "O código do lote é obrigatório.");
+                return "redirect:/";
+            }
+
+            if (paleteRepository.existsByCodigoLote(codigoLoteFormatado)) {
+                redirectAttributes.addFlashAttribute("erro", "Já existe um palete cadastrado com o lote: " + codigoLoteFormatado);
+                return "redirect:/";
+            }
+
             Produto produto = produtoRepository.findById(dto.getProdutoId())
                     .orElseThrow(() -> new IllegalArgumentException("Produto informado não foi encontrado."));
 
             Palete palete = new Palete();
-            palete.setCodigoLote(dto.getCodigoLote());
+            palete.setCodigoLote(codigoLoteFormatado);
             palete.setProduto(produto);
             palete.setQuantidadeItens(dto.getQuantidadeItens());
             palete.setPesoTotalKg(dto.getPesoTotalKg());
@@ -115,7 +133,10 @@ public class AlocacaoController {
 
             paleteRepository.save(palete);
             redirectAttributes.addFlashAttribute("sucesso", "Lote " + palete.getCodigoLote() + " recebido na doca com sucesso!");
+        } catch (DataIntegrityViolationException e) {
+            redirectAttributes.addFlashAttribute("erro", "Não foi possível cadastrar: o código de lote informado já está em uso.");
         } catch (Exception e) {
+            log.error("Erro inesperado ao cadastrar lote na doca: {}", e.getMessage(), e);
             redirectAttributes.addFlashAttribute("erro", "Erro ao dar entrada no lote: " + e.getMessage());
         }
         return "redirect:/";
@@ -142,6 +163,7 @@ public class AlocacaoController {
         } catch (CapacidadeExcedidaException e) {
             redirectAttributes.addFlashAttribute("erro", "Alerta Estrutural: " + e.getMessage());
         } catch (Exception e) {
+            log.error("Falha ao sugerir vaga para o palete ID {}: {}", id, e.getMessage(), e);
             redirectAttributes.addFlashAttribute("erro", "Não foi possível sugerir vaga: " + e.getMessage());
         }
         return "redirect:/";
@@ -173,6 +195,20 @@ public class AlocacaoController {
             redirectAttributes.addFlashAttribute("sucesso", "Palete expedido com sucesso e vaga física liberada!");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("erro", "Falha ao dar baixa no palete: " + e.getMessage());
+        }
+        return "redirect:/";
+    }
+
+    /**
+     * Remove um palete pendente na doca de recebimento delegando ao Service
+     */
+    @PostMapping("/paletes/{id}/excluir")
+    public String excluirPaleteDaDoca(@PathVariable("id") Long id, RedirectAttributes redirectAttributes) {
+        try {
+            alocacaoService.excluirPaleteDaDoca(id);
+            redirectAttributes.addFlashAttribute("sucesso", "Palete removido da doca com sucesso!");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("erro", "Não foi possível excluir o palete: " + e.getMessage());
         }
         return "redirect:/";
     }
