@@ -16,6 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -24,11 +26,36 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
 
+/**
+ * Controlador principal responsável pelo painel operacional do armazém,
+ * recebimento de mercadorias na doca, alocação física e expedição.
+ */
 @Controller
 @RequestMapping("/")
 public class AlocacaoController {
 
     private static final Logger log = LoggerFactory.getLogger(AlocacaoController.class);
+
+    // Constantes para evitar magic strings no roteamento e nas mensagens da interface
+    private static final String REDIRECT_HOME = "redirect:/";
+    private static final String VIEW_PAINEL = "painel";
+    private static final String ATTR_SUCESSO = "sucesso";
+    private static final String ATTR_ERRO = "erro";
+    private static final String ATTR_INFO = "info";
+
+    private static final String MOCK_CONTEXTO_IA = """
+            Temos um palete recém-chegado na doca:
+            - Produto: Tambores de Solvente Industrial (Inflamável / Químico)
+            - Peso total: 850 kg
+            
+            Vagas disponíveis no galpão:
+            1. Vaga A1 (Nível 1, solo) - Suporta até 1000 kg.
+            2. Vaga B3 (Nível 3, altura elevada) - Suporta até 500 kg.
+            3. Vaga C1 (Nível 1, baias reforçadas para inflamáveis) - Suporta até 1200 kg.
+            
+            Analise e retorne estritamente um JSON com o seguinte formato:
+            {"vagaSugerida": "C1", "origemDecisao": "IA_LOGISTICA", "justificativa": "sua justificativa técnica"}
+            """;
 
     private final AlocacaoService alocacaoService;
     private final PaleteRepository paleteRepository;
@@ -49,38 +76,26 @@ public class AlocacaoController {
     }
 
     /**
-     * Endpoint técnico para validar comunicação pura e resposta com o provedor de IA
+     * Endpoint técnico para validar a comunicação pura e formatação de resposta com o provedor de IA.
      */
     @GetMapping("/api/alocacao/teste-ia")
     @ResponseBody
     public ResponseEntity<String> testarIntegracaoIA() {
-        String contextoArmazem = """
-            Temos um palete recém-chegado na doca:
-            - Produto: Tambores de Solvente Industrial (Inflamável / Químico)
-            - Peso total: 850 kg
-            
-            Vagas disponíveis no galpão:
-            1. Vaga A1 (Nível 1, solo) - Suporta até 1000 kg.
-            2. Vaga B3 (Nível 3, altura elevada) - Suporta até 500 kg.
-            3. Vaga C1 (Nível 1, baias reforçadas para inflamáveis) - Suporta até 1200 kg.
-            
-            Analise e retorne estritamente um JSON com o seguinte formato:
-            {"vagaSugerida": "C1", "origemDecisao": "IA_LOGISTICA", "justificativa": "sua justificativa técnica"}
-            """;
-
         try {
-            String respostaIA = aiClient.obterSugestaoAlocacao(contextoArmazem);
+            String respostaIA = aiClient.obterSugestaoAlocacao(MOCK_CONTEXTO_IA);
+
             return ResponseEntity.ok()
-                    .header("Content-Type", "application/json; charset=UTF-8")
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE + "; charset=UTF-8")
                     .body(respostaIA);
+
         } catch (Exception e) {
-            log.error("Falha no teste direto de integração com o provedor de IA: {}", e.getMessage());
+            log.error("Falha no teste direto de integração com a IA: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().body("{\"erro\": \"Falha ao comunicar com o serviço de IA.\"}");
         }
     }
 
     /**
-     * Carrega o painel operacional com as métricas físicas, doca e mapa de estantes
+     * Carrega o painel operacional contendo as métricas físicas, status da doca e mapa de estantes.
      */
     @GetMapping
     public String exibirPainel(Model model) {
@@ -94,15 +109,16 @@ public class AlocacaoController {
         model.addAttribute("paletesAlocados", paletesAlocados);
         model.addAttribute("produtos", produtos);
 
+        // Garante que o objeto do formulário exista no modelo para o modal de recebimento
         if (!model.containsAttribute("novoPalete")) {
             model.addAttribute("novoPalete", new NovoPaleteDTO());
         }
 
-        return "painel";
+        return VIEW_PAINEL;
     }
 
     /**
-     * Dá entrada em novos lotes/paletes na doca de recebimento com validação de unicidade
+     * Registra a entrada de um novo palete/lote na doca com validação de unicidade.
      */
     @PostMapping("/paletes/receber")
     public String receberPaleteNaDoca(@ModelAttribute("novoPalete") NovoPaleteDTO dto,
@@ -110,14 +126,16 @@ public class AlocacaoController {
         try {
             String codigoLoteFormatado = dto.getCodigoLote() != null ? dto.getCodigoLote().trim().toUpperCase() : "";
 
+            // Cláusula de guarda: Código do lote em branco
             if (codigoLoteFormatado.isBlank()) {
-                redirectAttributes.addFlashAttribute("erro", "O código do lote é obrigatório.");
-                return "redirect:/";
+                redirectAttributes.addFlashAttribute(ATTR_ERRO, "O código do lote é obrigatório.");
+                return REDIRECT_HOME;
             }
 
+            // Cláusula de guarda: Prevenção contra lote duplicado
             if (paleteRepository.existsByCodigoLote(codigoLoteFormatado)) {
-                redirectAttributes.addFlashAttribute("erro", "Já existe um palete cadastrado com o lote: " + codigoLoteFormatado);
-                return "redirect:/";
+                redirectAttributes.addFlashAttribute(ATTR_ERRO, "Já existe um palete cadastrado com o lote: " + codigoLoteFormatado);
+                return REDIRECT_HOME;
             }
 
             Produto produto = produtoRepository.findById(dto.getProdutoId())
@@ -132,18 +150,20 @@ public class AlocacaoController {
             palete.setStatus(StatusPalete.RECEBIDO_DOCA);
 
             paleteRepository.save(palete);
-            redirectAttributes.addFlashAttribute("sucesso", "Lote " + palete.getCodigoLote() + " recebido na doca com sucesso!");
+            redirectAttributes.addFlashAttribute(ATTR_SUCESSO, "Lote " + palete.getCodigoLote() + " recebido na doca com sucesso!");
+
         } catch (DataIntegrityViolationException e) {
-            redirectAttributes.addFlashAttribute("erro", "Não foi possível cadastrar: o código de lote informado já está em uso.");
+            redirectAttributes.addFlashAttribute(ATTR_ERRO, "Não foi possível cadastrar: o código de lote informado já está em uso.");
         } catch (Exception e) {
-            log.error("Erro inesperado ao cadastrar lote na doca: {}", e.getMessage(), e);
-            redirectAttributes.addFlashAttribute("erro", "Erro ao dar entrada no lote: " + e.getMessage());
+            log.error("Erro inesperado ao registrar lote na doca: {}", e.getMessage(), e);
+            redirectAttributes.addFlashAttribute(ATTR_ERRO, "Erro ao dar entrada no lote: " + e.getMessage());
         }
-        return "redirect:/";
+
+        return REDIRECT_HOME;
     }
 
     /**
-     * Aciona a sugestão inteligente da vaga para o palete da doca (IA com Fallback Heurístico)
+     * Aciona a sugestão inteligente de vaga para um palete pendente (IA com Fallback Heurístico).
      */
     @GetMapping("/paletes/{id}/sugerir")
     public String sugerirVagaParaPalete(@PathVariable("id") Long id, RedirectAttributes redirectAttributes) {
@@ -154,23 +174,23 @@ public class AlocacaoController {
                     ? "🤖 [IA Logística]"
                     : "⚡ [Motor Heurístico - Contingência]";
 
-            redirectAttributes.addFlashAttribute("info",
+            redirectAttributes.addFlashAttribute(ATTR_INFO,
                     String.format("%s Posição recomendada: %s. Justificativa: %s",
-                            iconeOrigem,
-                            sugestao.vagaSugerida(),
-                            sugestao.justificativa()
+                            iconeOrigem, sugestao.vagaSugerida(), sugestao.justificativa()
                     ));
+
         } catch (CapacidadeExcedidaException e) {
-            redirectAttributes.addFlashAttribute("erro", "Alerta Estrutural: " + e.getMessage());
+            redirectAttributes.addFlashAttribute(ATTR_ERRO, "Alerta Estrutural: " + e.getMessage());
         } catch (Exception e) {
             log.error("Falha ao sugerir vaga para o palete ID {}: {}", id, e.getMessage(), e);
-            redirectAttributes.addFlashAttribute("erro", "Não foi possível sugerir vaga: " + e.getMessage());
+            redirectAttributes.addFlashAttribute(ATTR_ERRO, "Não foi possível sugerir vaga: " + e.getMessage());
         }
-        return "redirect:/";
+
+        return REDIRECT_HOME;
     }
 
     /**
-     * Realiza a alocação do palete na vaga física com controle de concorrência
+     * Efetiva a alocação física de um palete em uma estante com controle de concorrência.
      */
     @PostMapping("/paletes/alocar")
     public String alocarPaleteManual(@RequestParam("paleteId") Long paleteId,
@@ -178,38 +198,47 @@ public class AlocacaoController {
                                      RedirectAttributes redirectAttributes) {
         try {
             alocacaoService.alocarPalete(paleteId, enderecoId);
-            redirectAttributes.addFlashAttribute("sucesso", "Palete alocado na posição física com sucesso!");
+            redirectAttributes.addFlashAttribute(ATTR_SUCESSO, "Palete alocado na posição física com sucesso!");
+
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("erro", "Falha na alocação: " + e.getMessage());
+            log.error("Falha ao alocar palete ID {} no endereço ID {}: {}", paleteId, enderecoId, e.getMessage(), e);
+            redirectAttributes.addFlashAttribute(ATTR_ERRO, "Falha na alocação: " + e.getMessage());
         }
-        return "redirect:/";
+
+        return REDIRECT_HOME;
     }
 
     /**
-     * Realiza a baixa por expedição liberando o endereço e finalizando o ciclo do lote
+     * Realiza a expedição de um palete, liberando sua vaga física e finalizando seu ciclo de vida.
      */
     @PostMapping("/paletes/{id}/desalocar")
     public String desalocarPalete(@PathVariable("id") Long id, RedirectAttributes redirectAttributes) {
         try {
             alocacaoService.desalocarPalete(id);
-            redirectAttributes.addFlashAttribute("sucesso", "Palete expedido com sucesso e vaga física liberada!");
+            redirectAttributes.addFlashAttribute(ATTR_SUCESSO, "Palete expedido com sucesso e vaga física liberada!");
+
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("erro", "Falha ao dar baixa no palete: " + e.getMessage());
+            log.error("Falha ao expedir o palete ID {}: {}", id, e.getMessage(), e);
+            redirectAttributes.addFlashAttribute(ATTR_ERRO, "Falha ao dar baixa no palete: " + e.getMessage());
         }
-        return "redirect:/";
+
+        return REDIRECT_HOME;
     }
 
     /**
-     * Remove um palete pendente na doca de recebimento delegando ao Service
+     * Exclui de forma segura um palete que ainda está pendente na doca de recebimento.
      */
     @PostMapping("/paletes/{id}/excluir")
     public String excluirPaleteDaDoca(@PathVariable("id") Long id, RedirectAttributes redirectAttributes) {
         try {
             alocacaoService.excluirPaleteDaDoca(id);
-            redirectAttributes.addFlashAttribute("sucesso", "Palete removido da doca com sucesso!");
+            redirectAttributes.addFlashAttribute(ATTR_SUCESSO, "Palete removido da doca com sucesso!");
+
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("erro", "Não foi possível excluir o palete: " + e.getMessage());
+            log.error("Falha ao excluir o palete pendente ID {}: {}", id, e.getMessage(), e);
+            redirectAttributes.addFlashAttribute(ATTR_ERRO, "Não foi possível excluir o palete: " + e.getMessage());
         }
-        return "redirect:/";
+
+        return REDIRECT_HOME;
     }
 }
